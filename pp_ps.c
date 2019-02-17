@@ -1,7 +1,7 @@
-#include <stdio.h>  /*standard io*/
+#include <stdio.h>  /*standard io, file io*/
 #include <dirent.h> /*directory functions*/
-#include <stdlib.h> /*strtol, */
-#include <string.h> /*string handling*/
+#include <stdlib.h> /*atol, atoi*/
+#include <string.h> /*string handling, strtok*/
 
 struct entry{
 
