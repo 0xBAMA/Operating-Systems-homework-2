@@ -1,12 +1,13 @@
 #include <stdio.h>  /*standard io*/
 #include <dirent.h> /*directory functions*/
 #include <stdlib.h> /*strtol, */
+#include <string.h> /*string handling*/
 
 struct entry{
 
   u_int pid;
 
-  string command;
+  char command[50];
 
   char state;
 
@@ -19,8 +20,11 @@ struct entry{
   u_long rss;
 
   u_int last_cpu;
-  
-}
+
+};
+
+struct entry entries[500];
+u_int num_entries = 0;
 
 void readdirs();
 
@@ -41,6 +45,8 @@ void readdirs()
 
   long int pid;
 
+  char beg[50],p[50],end[50];
+
   dp = opendir("/proc");
 
   if(dp != NULL)
@@ -54,6 +60,18 @@ void readdirs()
         printf("directory name: %s \n", ep->d_name);
 
         /*do stuff with the directory*/
+
+        sprintf(p,"%d",pid);
+
+        strcpy(beg,"/proc/");
+
+        strcpy(end,"/stat");
+
+        strcat(beg,p);
+
+        strcat(beg,end);
+
+        printf("out: %s\n",beg);
       }
     }
     closedir(dp);
