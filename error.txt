@@ -1,0 +1,16 @@
+Script started on Mon Feb 18 16:48:03 2019
+p2% make
+gcc -o pp_ps pp_ps.c
+[01m[Kpp_ps.c:[m[K In function '[01m[Kreaddirs[m[K':
+[01m[Kpp_ps.c:149:13:[m[K [01;31m[Kerror: [m[K'[01m[Kstruct dirent[m[K' has no member named '[01m[Kd_type[m[K'
+       if((ep->d_type == DT_DIR) && (pid > 0))
+[01;32m[K             ^[m[K
+[01m[Kpp_ps.c:149:25:[m[K [01;31m[Kerror: [m[K'[01m[KDT_DIR[m[K' undeclared (first use in this function)
+       if((ep->d_type == DT_DIR) && (pid > 0))
+[01;32m[K                         ^[m[K
+[01m[Kpp_ps.c:149:25:[m[K [01;36m[Knote: [m[Keach undeclared identifier is reported only once for each function it appears in
+*** Error code 1
+make: Fatal error: Command failed for target `output'
+p2% exit
+p2% 
+script done on Mon Feb 18 16:48:09 2019
