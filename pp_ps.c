@@ -86,8 +86,10 @@ int main(int argc, const char **argv) {
 /*get all the information from all running programs, i.e. /proc/<pid>/stat for all pids */
   readdirs();
 
-/*output the headings */
-
+/*output the headings
+the headings are as follows -
+PID      COMMAND       STATE      %CPU      %MEM       VSZ      RSS       LAST CPU*/
+printf("  PID             COMMAND               STATE     %%CPU        %%MEM       VSZ(k)     RSS(k)     LAST_CPU\n");
 
 /*sort the entries, with the relevant ordering */
   qsort(entries,num_entries,sizeof(entry),compare);
@@ -96,7 +98,7 @@ int main(int argc, const char **argv) {
 
   for (size_t i = 0; i < num_entries; i++)
   {
-    printf("%d %s\n", entries[i].pid, entries[i].command);
+    printf("%6d %-30s %5c    %8.5f    %8.5f %10ld   %8d        %d\n", entries[i].pid, entries[i].command, entries[i].state, entries[i].cpu_perc, entries[i].mem_perc, entries[i].vsz/1000, entries[i].rss/1000, entries[i].last_cpu);
   }
 
   printf("\n\nthe pp_ps program ran in %f ms\n", (((double)(clock()-t))/CLOCKS_PER_SEC)*1000);
@@ -116,6 +118,7 @@ void readdirs()
   long utime; /*these three variables hold values for computing the CPU time */
   long stime;
   double ptime;
+  double rtime;
 
   struct dirent *ep;
   long int pid;
@@ -168,6 +171,12 @@ void readdirs()
 
         token = strtok(NULL," ");
 
+        if(!strcmp(token,")")) /*in the case of a command contained in parenthesis, i.e. one I had called "(sd-pam)" that was grabbing ")" as the state*/
+        {
+          token = strtok(NULL," ");
+          strcat(entries[num_entries].command,")");
+        }
+
         entries[num_entries].state = token[0];
 
         /*get rid of junk values */
@@ -204,7 +213,16 @@ void readdirs()
         /*also compute the %CPU usage now that we have all the relevant information */
 
         ptime = utime/sysconf(_SC_CLK_TCK) + stime/sysconf(_SC_CLK_TCK);
-        entries[num_entries].cpu_perc = (ptime * 100) / (uptime - atol(strtok(NULL," "))/sysconf(_SC_CLK_TCK));
+        rtime = uptime - atol(strtok(NULL," "))/sysconf(_SC_CLK_TCK);
+
+        if(rtime != 0.0)
+        {
+          entries[num_entries].cpu_perc = (ptime * 100) / rtime;
+        }
+        else
+        {
+          entries[num_entries].cpu_perc = 0.0;
+        }
 
         /*get the program's virtual memory size - twenty-third value */
 
@@ -214,7 +232,7 @@ void readdirs()
         /*also, compute the percent memory usage */
 
         entries[num_entries].rss = atol(strtok(NULL," "));
-        entries[num_entries].mem_perc = ((entries[num_entries].rss * 100 * sysconf(_SC_PAGE_SIZE)) / (sysconf(_SC_PAGE_SIZE)*sysconf(_SC_PHYS_PAGES)));
+        entries[num_entries].mem_perc = (((double)entries[num_entries].rss * 100.0 * (double)sysconf(_SC_PAGE_SIZE)) / (double)(sysconf(_SC_PAGE_SIZE)*sysconf(_SC_PHYS_PAGES)));
 
         /*even more junk values */
 
@@ -259,7 +277,7 @@ int cpu_compare(const void* a, const void* b)
   entry *entryB = (entry *)b;
 
   /*compare the relevant values */
-  return (entryA->cpu_perc > entryB->cpu_perc);
+  return (entryA->cpu_perc < entryB->cpu_perc);
 }
 
 int mem_compare(const void* a, const void* b)
@@ -267,7 +285,7 @@ int mem_compare(const void* a, const void* b)
   entry *entryA = (entry *)a;
   entry *entryB = (entry *)b;
 
-  return (entryA->mem_perc > entryB->mem_perc);
+  return (entryA->mem_perc < entryB->mem_perc);
 }
 
 int pid_compare(const void* a, const void* b)
