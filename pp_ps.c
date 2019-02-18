@@ -69,25 +69,42 @@ int main(int argc, const char **argv) {
   readdirs();
 
   /*function pointers are neat*/
-  if(!strcmp(argv[1], "-cpu")) {
+  if(!strcmp(argv[1], "-cpu"))
+  {
+
       /*printf("ordering based upon cpu usage\n");*/
       compare = cpu_compare;
+
+      printf("%d\n", compare(entries[1],entries[2])); //test successful
+
   }
-  else if(!strcmp(argv[1], "-mem")) {
+  else if(!strcmp(argv[1], "-mem"))
+  {
+
       /*printf("ordering based upon memory usage\n");*/
       compare = mem_compare;
+
   }
-  else if(!strcmp(argv[1], "-pid")) {
+  else if(!strcmp(argv[1], "-pid"))
+  {
+
       /*printf("ordering based upon pid\n");*/
       compare = pid_compare;
+
   }
-  else if(!strcmp(argv[1], "-com")) {
+  else if(!strcmp(argv[1], "-com"))
+  {
+
       /*printf("ordering based upon command\n");*/
       compare = com_compare;
+
   }
-  else {
+  else
+  {
+
       printf("Unknown argument passed to pp_ps\n");
       return 0;
+
   }
 
 
