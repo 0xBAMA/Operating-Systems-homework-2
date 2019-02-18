@@ -1,9 +1,10 @@
 #include <stdio.h>  /*standard io, file io*/
 #include <dirent.h> /*directory functions*/
-#include <stdlib.h> /*atol, atoi*/
+#include <stdlib.h> /*atol, atoi, qsort*/
 #include <string.h> /*string handling, strtok*/
+#include <unistd.h> /*sysconf*/
 
-struct entry{
+typedef struct{
 
   u_int pid;
 
@@ -21,23 +22,75 @@ struct entry{
 
   u_int last_cpu;
 
-};
+}entry;
 
-struct entry entries[500];
+entry entries[1000];
 u_int num_entries = 0;
 
 float uptime;
 
 void readdirs();
 
+int cpu_compare(entry a, entry b)
+{
+  return 0;
+}
 
-int main(int argc, char const *argv[]) {
+int mem_compare(entry a, entry b)
+{
+  return 0;
+}
+
+int pid_compare(entry a, entry b)
+{
+  return 0;
+}
+
+int com_compare(entry a, entry b)
+{
+  return 0;
+}
+
+
+int main(int argc, const char **argv) {
+
+  const char * cpu_string = "-cpu";
+  int (*compare)(entry a, entry b);
+
+  if(argc != 2)
+  {
+    printf("make sure to format the call to pp_ps with either -cpu, -mem, -pid or -com\n");
+  }
 
   FILE *fp = fopen("/proc/uptime","r");
 
   fscanf(fp,"%f",&uptime);
 
   readdirs();
+
+  /*function pointers are neat*/
+  if(!strcmp(argv[1], "-cpu")) {
+      /*printf("ordering based upon cpu usage\n");*/
+      compare = cpu_compare;
+  }
+  else if(!strcmp(argv[1], "-mem")) {
+      /*printf("ordering based upon memory usage\n");*/
+      compare = mem_compare;
+  }
+  else if(!strcmp(argv[1], "-pid")) {
+      /*printf("ordering based upon pid\n");*/
+      compare = pid_compare;
+  }
+  else if(!strcmp(argv[1], "-com")) {
+      /*printf("ordering based upon command\n");*/
+      compare = com_compare;
+  }
+  else {
+      printf("Unknown argument passed to pp_ps\n");
+      return 0;
+  }
+
+
 
   return 0;
 }
@@ -53,6 +106,8 @@ void readdirs()
 
   long utime;
   long stime;
+
+  double ptime;
 
   void *junk;
 
@@ -97,23 +152,19 @@ void readdirs()
 
         /*get the pid - first entry*/
 
-        token = strtok(data_string, " ");
-
-        entries[num_entries].pid = atoi(token);
+        entries[num_entries].pid = atoi(strtok(data_string, " "));
 
         /*get the command - second entry*/
 
         token = strtok(NULL,")");
 
-        sprintf(token,"%s", token+1); /*dump the leading parenthesis*/
-
-        entries[num_entries].command = token;
+        sprintf(entries[num_entries].command,"%s", token+1); /*dump the leading parenthesis*/
 
         /*get the state - third entry*/
 
         token = strtok(NULL," ");
 
-        entries[num_entries].state = token;
+        entries[num_entries].state = token[0];
 
         /*get rid of junk values*/
 
@@ -130,20 +181,59 @@ void readdirs()
 
         /*get the program's utime - fourteenth entry*/
 
-        token = strtok(NULL," ");
-        utime = atol(token);
+        utime = atol(strtok(NULL," "));
 
         /*get the program's stime - fifteenth entry*/
 
-        token = strtok(NULL," ");
-        stime = atol(token);
+        stime = atol(strtok(NULL," "));
 
-        /*****compute the time, for %CPU******/
+        /*more junk values*/
 
+        token = strtok(NULL," ");/*sixteenth entry     - cutime*/
+        token = strtok(NULL," ");/*seventeenth entry   - cstime*/
+        token = strtok(NULL," ");/*eigteenth entry     - priority*/
+        token = strtok(NULL," ");/*nineteenth entry    - nice*/
+        token = strtok(NULL," ");/*twentieth entry     - num_threads*/
+        token = strtok(NULL," ");/*twenty-first entry  - itrealvalue*/
 
+        /*get the startime - twenty-second value*/
+        /*also compute the %CPU usage*/
 
-        token = strtok(NULL," ");
+        ptime = utime/sysconf(_SC_CLK_TCK) + stime/sysconf(_SC_CLK_TCK);
 
+        entries[num_entries].cpu_perc = (ptime * 100) / (uptime - atol(strtok(NULL," "))/sysconf(_SC_CLK_TCK));
+
+        /*get the program's virtual memory size - twenty-third value*/
+
+        entries[num_entries].vsz = atol(strtok(NULL," "));
+
+        /*get the program's resident set size - twenty-fourth value*/
+        /*also, compute the percent memory usage*/
+
+        entries[num_entries].rss = atol(strtok(NULL," "));
+        entries[num_entries].mem_perc = ((entries[num_entries].rss * 100 * sysconf(_SC_PAGE_SIZE)) / (sysconf(_SC_PAGE_SIZE)*sysconf(_SC_PHYS_PAGES)));
+
+        /*even more junk values*/
+
+        token = strtok(NULL," ");/*twenty-fifth    - rsslim*/
+        token = strtok(NULL," ");/*twenty-sixth    - startcode*/
+        token = strtok(NULL," ");/*twenty-seventh  - endcode*/
+        token = strtok(NULL," ");/*twenty-eigth    - startstack*/
+        token = strtok(NULL," ");/*twenty-ninth    - kstkesp*/
+        token = strtok(NULL," ");/*thirtieth       - kstkeip*/
+        token = strtok(NULL," ");/*thirty-first    - signal*/
+        token = strtok(NULL," ");/*thirty-second   - blocked*/
+        token = strtok(NULL," ");/*thirty-third    - sigignore*/
+        token = strtok(NULL," ");/*thirty-fourth   - sigignore*/
+        token = strtok(NULL," ");/*thirty-fifth    - wchan*/
+        token = strtok(NULL," ");/*thirty-sixth    - nswap*/
+        token = strtok(NULL," ");/*thirty-seventh  - cnswap*/
+        token = strtok(NULL," ");/*thirty-eigth    - exit_signal*/
+
+        /*get the last cpu that the program ran on - thirty-ninth value*/
+        entries[num_entries].last_cpu = atoi(strtok(NULL," "));
+
+        /*no more information to get from the file*/
 
         num_entries++;
         fclose(fp);
