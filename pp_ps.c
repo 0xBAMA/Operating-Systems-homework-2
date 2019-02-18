@@ -58,8 +58,10 @@ int main(int argc, const char **argv) {
   if(argc < 2)
   {
     printf("make sure to format the call to pp_ps with either -cpu, -mem, -pid or -com\n");
+    exit(-1);
   }
 
+/*set the compare function based upon the input argument */
   set_compare_function(argv[1]);
 
 
