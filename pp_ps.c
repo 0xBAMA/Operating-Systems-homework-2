@@ -32,7 +32,11 @@ size_t num_entries = 0;
 
 float uptime; /*in global scope, this gets used in readdirs() */
 
-void readdirs();
+
+/*functions related to the compare sent to qsort */
+void set_compare_function(const char* a);
+
+int (*compare)(const void* a, const void* b);
 
 int cpu_compare(const void* a, const void* b);
 
@@ -42,11 +46,13 @@ int pid_compare(const void* a, const void* b);
 
 int com_compare(const void* a, const void* b);
 
+void readdirs();
+
 
 int main(int argc, const char **argv) {
 
   clock_t t = clock();
-  int (*compare)(const void* a, const void* b);
+
 
 /*validate the input argument, then use it to decide which comparison function will be used */
   if(argc < 2)
@@ -54,28 +60,7 @@ int main(int argc, const char **argv) {
     printf("make sure to format the call to pp_ps with either -cpu, -mem, -pid or -com\n");
   }
 
-  /*function pointers are neat */
-  if(!strcmp(argv[1], "-cpu"))
-  {
-      compare = cpu_compare;
-  }
-  else if(!strcmp(argv[1], "-mem"))
-  {
-      compare = mem_compare;
-  }
-  else if(!strcmp(argv[1], "-pid"))
-  {
-      compare = pid_compare;
-  }
-  else if(!strcmp(argv[1], "-com"))
-  {
-      compare = com_compare;
-  }
-  else
-  {
-      printf("Unknown argument passed to pp_ps\n");
-      return 0;
-  }
+  set_compare_function(argv[1]);
 
 
 /*get the system uptime, to be used for the CPU usage calculation */
@@ -98,12 +83,38 @@ printf("  PID             COMMAND               STATE     %%CPU        %%MEM    
 
   for (size_t i = 0; i < num_entries; i++)
   {
-    printf("%6d %-30s %5c    %8.5f    %8.5f %10ld   %8d        %d\n", entries[i].pid, entries[i].command, entries[i].state, entries[i].cpu_perc, entries[i].mem_perc, entries[i].vsz/1000, entries[i].rss/1000, entries[i].last_cpu);
+    printf("%6d %-30.30s %5c    %8.5f    %8.5f %10ld   %8d        %d\n", entries[i].pid, entries[i].command, entries[i].state, entries[i].cpu_perc, entries[i].mem_perc, entries[i].vsz/1000, entries[i].rss/1000, entries[i].last_cpu);
   }
 
   printf("\n\nthe pp_ps program ran in %f ms\n", (((double)(clock()-t))/CLOCKS_PER_SEC)*1000);
 
   return 0;
+}
+
+void set_compare_function(const char* a)
+{
+  /*function pointers are neat */
+  if(!strcmp(a, "-cpu"))
+  {
+      compare = cpu_compare;
+  }
+  else if(!strcmp(a, "-mem"))
+  {
+      compare = mem_compare;
+  }
+  else if(!strcmp(a, "-pid"))
+  {
+      compare = pid_compare;
+  }
+  else if(!strcmp(a, "-com"))
+  {
+      compare = com_compare;
+  }
+  else
+  {
+      printf("Unknown argument passed to pp_ps\n");
+      exit(-1);
+  }
 }
 
 
@@ -153,7 +164,7 @@ void readdirs()
 
         fp = fopen(beg,"r");
 
-        /*get the data from the file - everything up to the newline character*/
+        /*get the data from the file - everything up to the newline character */
 
         fgets(data_string,1000,fp);
 
@@ -171,10 +182,10 @@ void readdirs()
 
         token = strtok(NULL," ");
 
-        if(!strcmp(token,")")) /*in the case of a command contained in parenthesis, i.e. one I had called "(sd-pam)" that was grabbing ")" as the state*/
+        if(!strcmp(token,")")) /*in the case of a command contained in parenthesis, i.e. one I had called "(sd-pam)" that was grabbing ")" as the state */
         {
-          token = strtok(NULL," ");
-          strcat(entries[num_entries].command,")");
+          token = strtok(NULL," "); /*get the real state */
+          strcat(entries[num_entries].command,")"); /*put the ")" back */
         }
 
         entries[num_entries].state = token[0];
@@ -256,7 +267,7 @@ void readdirs()
 
         /*no more information to get from the file */
 
-        num_entries++; /*increment when finished - for the last element, this is important, since num_entries is used as an argument for qsort */
+        num_entries++; /*increment when finished - for the last element, this is important, since num_entries is used as a size argument for qsort */
         fclose(fp);
       }
     }
@@ -272,7 +283,7 @@ void readdirs()
 /*comparison functions */
 
 int cpu_compare(const void* a, const void* b)
-{/*cast the void pointer as an entry type */
+{/*cast the void pointer as an 'entry' type */
   entry *entryA = (entry *)a;
   entry *entryB = (entry *)b;
 
