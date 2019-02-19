@@ -1,9 +1,33 @@
-#include <stdio.h>  /*standard io, file io*/
-#include <dirent.h> /*directory functions*/
-#include <stdlib.h> /*atol, atoi, qsort*/
-#include <string.h> /*string handling, strtok*/
-#include <unistd.h> /*sysconf*/
-#include <time.h>   /*for timing, just out of curiousity - then for the pp_top program, it'll be relevant*/
+#include <stdio.h>  /*standard io, file io */
+#include <dirent.h> /*directory functions */
+#include <stdlib.h> /*atol, atoi, qsort */
+#include <string.h> /*string handling, strtok */
+#include <unistd.h> /*sysconf */
+#include <time.h>   /*for timing, sleep */
+#include <sys/ioctl.h> /*for the ioctl function */
+
+#define gotoxy(x,y) printf("\033[%d;%dH", (x), (y))
+#define clear() printf("\033[H\033[J")
+
+/*terminal colors - https://en.wikipedia.org/wiki/ANSI_escape_code
+also https://stackoverflow.com/questions/3219393/stdlib-and-colored-output-in-c */
+
+#define ANSI_COLOR_RED          "\x1b[31m"
+#define ANSI_COLOR_RED_BG       "\x1b[41m"
+
+
+#define ANSI_COLOR_GREEN        "\x1b[32m"
+#define ANSI_COLOR_YELLOW       "\x1b[33m"
+
+#define ANSI_COLOR_BLUE         "\x1b[34m"
+#define ANSI_COLOR_BLUE_BG      "\x1b[44m"
+
+
+#define ANSI_COLOR_MAGENTA      "\x1b[35m"
+#define ANSI_COLOR_MAGENTA_BG   "\x1b[45m"
+
+#define ANSI_COLOR_CYAN         "\x1b[36m"
+#define ANSI_COLOR_RESET        "\x1b[0m"
 
 typedef struct{
 /*all the information for the entry */
@@ -33,6 +57,8 @@ size_t num_entries = 0;
 float uptime; /*in global scope, this gets used in readdirs() */
 
 
+
+
 /*functions related to the compare sent to qsort */
 void set_compare_function(const char* a);
 
@@ -51,44 +77,171 @@ void readdirs();
 
 int main(int argc, const char **argv) {
 
-  clock_t t = clock();
+  struct winsize wsize;
+
+  int term_rows;
+  int term_cols;
+
+  int total_running;
+
+  double us_taken;
+  double cpu_perc_total;
+  double mem_perc_total;
+
+  long total_system_memory = sysconf(_SC_PAGE_SIZE)*sysconf(_SC_PHYS_PAGES)/1000000;
 
 
 /*validate the input argument, then use it to decide which comparison function will be used */
   if(argc < 2)
   {
-    printf("make sure to format the call to pp_ps with either -cpu, -mem, -pid or -com\n");
+    printf("make sure to format the call to pp_top with either -cpu, -mem, -pid or -com\n");
     exit(-1);
   }
 
 /*set the compare function based upon the input argument */
   set_compare_function(argv[1]);
 
+  clear();
+  gotoxy(0,0);
 
-/*get the system uptime, to be used for the CPU usage calculation */
-  FILE *fp = fopen("/proc/uptime","r");
-  fscanf(fp,"%f",&uptime);
-  fclose(fp);
-
-/*get all the information from all running programs, i.e. /proc/<pid>/stat for all pids */
-  readdirs();
-
-/*output the headings
-the headings are as follows -
-PID      COMMAND       STATE      %CPU      %MEM       VSZ      RSS       LAST CPU*/
-printf("  PID             COMMAND               STATE     %%CPU        %%MEM       VSZ(k)     RSS(k)     LAST_CPU\n");
-
-/*sort the entries, with the relevant ordering */
-  qsort(entries,num_entries,sizeof(entry),compare);
-
-/*print out all the entries */
-
-  for (size_t i = 0; i < num_entries; i++)
+  while(1)
   {
-    printf("%6d %-30.30s %5c    %8.5f    %8.5f %10ld   %8d        %d\n", entries[i].pid, entries[i].command, entries[i].state, entries[i].cpu_perc, entries[i].mem_perc, entries[i].vsz/1000, entries[i].rss/1000, entries[i].last_cpu);
-  }
+    /*reset */
+      total_running = 0;
+      cpu_perc_total = 0.0;
+      mem_perc_total = 0.0;
+      us_taken = 0.0;
+      num_entries = 0;
 
-  printf("\n\nthe pp_ps program ran in %f ms\n", (((double)(clock()-t))/CLOCKS_PER_SEC)*1000);
+
+
+    /*get information about the terminal window */
+      ioctl(STDOUT_FILENO,TIOCGWINSZ,&wsize);
+      term_rows = wsize.ws_row;
+      term_cols = wsize.ws_col;
+
+
+    if(term_rows < 24 || term_cols < 80)
+    {/*terminal is not of sufficient size */
+      printf("please resize your terminal\n");
+      printf("minimum terminal size is set to 24 rows and 80 columns\n");
+      printf("your current configuration is %d rows and %d columns\n", term_rows, term_cols);
+    }
+    else
+    {/*terminal is at least 24 rows, and 80 columns - I saw this listed as a 'small' preset on a terminal emulator
+      space is allocated for the different sections as follows
+
+      PID| |COMMAND| |STATE| |%CPU| |%MEM| |VSZ(k)| |RSS(k)| |LAST
+#chars 5  1   33    1   5   1  6   1  6   1   7    1   7    1  4 */
+
+    /*get the system uptime, to be used for the CPU usage calculation */
+      FILE *fp = fopen("/proc/uptime","r");
+      fscanf(fp,"%f",&uptime);
+      fclose(fp);
+
+    /*get all the information from all running programs, i.e. /proc/<pid>/stat for all pids */
+      readdirs();
+
+    /*sort the entries, with the relevant ordering */
+      qsort(entries,num_entries,sizeof(entry),compare);
+
+    /*print out all the entries */
+
+      for (size_t i = 0; i < num_entries; i++)
+      {
+        /*printf("%6d %-30.30s %5c    %8.5f    %8.5f %10ld   %8d        %d\n", entries[i].pid, entries[i].command, entries[i].state, entries[i].cpu_perc, entries[i].mem_perc, entries[i].vsz/1000, entries[i].rss/1000, entries[i].last_cpu);*/
+        cpu_perc_total += entries[i].cpu_perc;
+        mem_perc_total += entries[i].mem_perc;
+
+        if(entries[i].state == 'R')
+        {
+          total_running++;
+        }
+      }
+
+
+      /*output the system information - two lines (system information, then a row of padding)
+ Running: <number of running processes> of <total system processes> total     CPU: <percent>%      MEM: <percent>% of <total_system_memory> */
+
+      printf(ANSI_COLOR_BLUE_BG ANSI_COLOR_YELLOW);
+      /*for some weird reason, under load, this first row disappears sometimes*/
+      printf("Running processes: %4d of %4d total   CPU: %6.3f %%   MEM: %6.3f %% of %5ld M \n" ANSI_COLOR_RESET, total_running, num_entries, cpu_perc_total, mem_perc_total, total_system_memory);
+      printf(ANSI_COLOR_BLUE_BG ANSI_COLOR_YELLOW);
+      printf("═════════════════════════════════════════════════════════════════════════════════\n"ANSI_COLOR_RESET);
+      printf(ANSI_COLOR_BLUE_BG ANSI_COLOR_YELLOW);
+
+
+      /*output the headings - one line - using the terminal color codes, show which section is being used to sort */
+      if(!strcmp(argv[1], "-cpu"))
+      {
+        printf(" PID | COMMAND                         |STATE|" ANSI_COLOR_MAGENTA_BG ANSI_COLOR_BLUE " %%CPU " ANSI_COLOR_RESET ANSI_COLOR_BLUE_BG ANSI_COLOR_YELLOW "| %%MEM |VSZ(k) |RSS(k) |LAST \n" ANSI_COLOR_RESET);
+      }
+      else if(!strcmp(argv[1], "-mem"))
+      {
+        printf(" PID | COMMAND                         |STATE| %%CPU |" ANSI_COLOR_MAGENTA_BG ANSI_COLOR_BLUE " %%MEM " ANSI_COLOR_RESET ANSI_COLOR_BLUE_BG ANSI_COLOR_YELLOW "|VSZ(k) |RSS(k) |LAST \n" ANSI_COLOR_RESET);
+      }
+      else if(!strcmp(argv[1], "-pid"))
+      {
+        printf(ANSI_COLOR_MAGENTA_BG ANSI_COLOR_BLUE " PID " ANSI_COLOR_RESET ANSI_COLOR_BLUE_BG ANSI_COLOR_YELLOW "| COMMAND                         |STATE| %%CPU | %%MEM |VSZ(k) |RSS(k) |LAST \n" ANSI_COLOR_RESET);
+      }
+      else if(!strcmp(argv[1], "-com"))
+      {
+        printf(" PID |" ANSI_COLOR_MAGENTA_BG ANSI_COLOR_BLUE " COMMAND                         " ANSI_COLOR_RESET ANSI_COLOR_BLUE_BG ANSI_COLOR_YELLOW "|STATE| %%CPU | %%MEM |VSZ(k) |RSS(k) |LAST \n" ANSI_COLOR_RESET);
+      }
+
+      /*output the info - at least 21 lines*/
+      for (size_t j = 0; j < (term_rows-3); j++) {
+
+        printf("%5d  %-30.30s     %c  ", entries[j].pid, entries[j].command, entries[j].state);
+
+
+        /*coloration based upon cpu percentage - cyan(0-25%) -> green(25-50%) -> yellow(50-75%) -> red(75%+)*/
+        if (entries[j].cpu_perc < 25.0)
+        {
+          printf(ANSI_COLOR_CYAN);
+        }
+        else if(entries[j].cpu_perc < 50.0)
+        {
+          printf(ANSI_COLOR_GREEN);
+        }
+        else if(entries[j].cpu_perc < 75.0)
+        {
+          printf(ANSI_COLOR_YELLOW);
+        }
+        else
+        {
+          printf(ANSI_COLOR_RED);
+        }
+
+        printf("%6.2f%%" ANSI_COLOR_RESET, entries[j].cpu_perc);
+
+        printf("%6.2f%% ", entries[j].mem_perc);
+
+        printf("%7ld ", entries[j].vsz/1000); /*expressed in k to save space*/
+
+        printf("%7ld ", entries[j].rss/1000);
+
+        printf("  %d", entries[j].last_cpu);
+
+
+
+
+
+        if(j < (term_rows-4))
+        {/*don't want to overrun, it bumps the top off*/
+          printf("\n");
+        }
+      }
+    }
+
+    /*printf("waiting\n");*/
+    usleep(1000000);
+
+  /*reset the terminal */
+    clear();
+    gotoxy(0,0);
+
+  }
 
   return 0;
 }
