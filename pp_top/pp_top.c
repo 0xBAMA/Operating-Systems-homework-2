@@ -174,19 +174,19 @@ int main(int argc, const char **argv) {
       /*output the headings - one line - using the terminal color codes, show which section is being used to sort */
       if(!strcmp(argv[1], "-cpu"))
       {
-        printf(" PID | COMMAND                         |STATE|" ANSI_COLOR_MAGENTA_BG ANSI_COLOR_BLUE " %%CPU " ANSI_COLOR_RESET ANSI_COLOR_BLUE_BG ANSI_COLOR_YELLOW "| %%MEM |VSZ(k) |RSS(k) |LAST \n" ANSI_COLOR_RESET);
+        printf(" PID | COMMAND                         |STATE|" ANSI_COLOR_MAGENTA_BG ANSI_COLOR_BLUE " %%CPU " ANSI_COLOR_RESET ANSI_COLOR_BLUE_BG ANSI_COLOR_YELLOW "| %%MEM |VSZ(mb)|RSS(mb)|LAST \n" ANSI_COLOR_RESET);
       }
       else if(!strcmp(argv[1], "-mem"))
       {
-        printf(" PID | COMMAND                         |STATE| %%CPU |" ANSI_COLOR_MAGENTA_BG ANSI_COLOR_BLUE " %%MEM " ANSI_COLOR_RESET ANSI_COLOR_BLUE_BG ANSI_COLOR_YELLOW "|VSZ(k) |RSS(k) |LAST \n" ANSI_COLOR_RESET);
+        printf(" PID | COMMAND                         |STATE| %%CPU |" ANSI_COLOR_MAGENTA_BG ANSI_COLOR_BLUE " %%MEM " ANSI_COLOR_RESET ANSI_COLOR_BLUE_BG ANSI_COLOR_YELLOW "|VSZ(mb)|RSS(mb)|LAST \n" ANSI_COLOR_RESET);
       }
       else if(!strcmp(argv[1], "-pid"))
       {
-        printf(ANSI_COLOR_MAGENTA_BG ANSI_COLOR_BLUE " PID " ANSI_COLOR_RESET ANSI_COLOR_BLUE_BG ANSI_COLOR_YELLOW "| COMMAND                         |STATE| %%CPU | %%MEM |VSZ(k) |RSS(k) |LAST \n" ANSI_COLOR_RESET);
+        printf(ANSI_COLOR_MAGENTA_BG ANSI_COLOR_BLUE " PID " ANSI_COLOR_RESET ANSI_COLOR_BLUE_BG ANSI_COLOR_YELLOW "| COMMAND                         |STATE| %%CPU | %%MEM |VSZ(mb)|RSS(mb)|LAST \n" ANSI_COLOR_RESET);
       }
       else if(!strcmp(argv[1], "-com"))
       {
-        printf(" PID |" ANSI_COLOR_MAGENTA_BG ANSI_COLOR_BLUE " COMMAND                         " ANSI_COLOR_RESET ANSI_COLOR_BLUE_BG ANSI_COLOR_YELLOW "|STATE| %%CPU | %%MEM |VSZ(k) |RSS(k) |LAST \n" ANSI_COLOR_RESET);
+        printf(" PID |" ANSI_COLOR_MAGENTA_BG ANSI_COLOR_BLUE " COMMAND                         " ANSI_COLOR_RESET ANSI_COLOR_BLUE_BG ANSI_COLOR_YELLOW "|STATE| %%CPU | %%MEM |VSZ(mb)|RSS(mb)|LAST \n" ANSI_COLOR_RESET);
       }
 
       /*output the info - at least 21 lines*/
@@ -217,9 +217,9 @@ int main(int argc, const char **argv) {
 
         printf("%6.2f%% ", entries[j].mem_perc);
 
-        printf("%7ld ", entries[j].vsz/1000); /*expressed in k to save space*/
+        printf("%7ld ", entries[j].vsz/(1024*1024)); /*expressed in mb to save space*/
 
-        printf("%7ld ", entries[j].rss/1000);
+        printf("%7ld ", entries[j].rss/(1024*1024));
 
         printf("  %d", entries[j].last_cpu);
 
@@ -392,13 +392,13 @@ void readdirs()
 
         /*get the program's virtual memory size - twenty-third value */
 
-        entries[num_entries].vsz = atol(strtok(NULL," "));
+        entries[num_entries].vsz = atol(strtok(NULL," "))*sysconf(_SC_PAGE_SIZE);
 
         /*get the program's resident set size - twenty-fourth value */
         /*also, compute the percent memory usage */
 
-        entries[num_entries].rss = atol(strtok(NULL," "));
-        entries[num_entries].mem_perc = (((double)entries[num_entries].rss * 100.0 * (double)sysconf(_SC_PAGE_SIZE)) / (double)(sysconf(_SC_PAGE_SIZE)*sysconf(_SC_PHYS_PAGES)));
+        entries[num_entries].rss = atol(strtok(NULL," "))*sysconf(_SC_PAGE_SIZE);
+        entries[num_entries].mem_perc = ((double)entries[num_entries].rss * 100.0 / (double)(sysconf(_SC_PAGE_SIZE)*sysconf(_SC_PHYS_PAGES)));
 
         /*even more junk values */
 
