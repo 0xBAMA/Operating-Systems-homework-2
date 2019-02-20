@@ -76,7 +76,7 @@ int main(int argc, const char **argv) {
 /*output the headings
 the headings are as follows -
 PID      COMMAND       STATE      %CPU      %MEM       VSZ      RSS       LAST CPU*/
-printf("  PID             COMMAND               STATE     %%CPU        %%MEM       VSZ(k)     RSS(k)     LAST_CPU\n");
+printf("  PID             COMMAND               STATE     %%CPU        %%MEM       VSZ(mb)    RSS(mb)    LAST_CPU\n");
 
 /*sort the entries, with the relevant ordering */
   qsort(entries,num_entries,sizeof(entry),compare);
@@ -85,7 +85,7 @@ printf("  PID             COMMAND               STATE     %%CPU        %%MEM    
 
   for (size_t i = 0; i < num_entries; i++)
   {
-    printf("%6d %-30.30s %5c    %8.5f    %8.5f %10ld   %8d        %d\n", entries[i].pid, entries[i].command, entries[i].state, entries[i].cpu_perc, entries[i].mem_perc, entries[i].vsz/1000, entries[i].rss/1000, entries[i].last_cpu);
+    printf("%6d %-30.30s %5c    %8.5f    %8.5f %10ld   %8d        %d\n", entries[i].pid, entries[i].command, entries[i].state, entries[i].cpu_perc, entries[i].mem_perc, entries[i].vsz/(1024*1024), entries[i].rss/(1024*1024), entries[i].last_cpu);
   }
 
   printf("\n\nthe pp_ps program ran in %f ms\n", (((double)(clock()-t))/CLOCKS_PER_SEC)*1000);
@@ -239,13 +239,13 @@ void readdirs()
 
         /*get the program's virtual memory size - twenty-third value */
 
-        entries[num_entries].vsz = atol(strtok(NULL," "));
+        entries[num_entries].vsz = atol(strtok(NULL," ")) * (double)sysconf(_SC_PAGE_SIZE);
 
         /*get the program's resident set size - twenty-fourth value */
         /*also, compute the percent memory usage */
 
-        entries[num_entries].rss = atol(strtok(NULL," "));
-        entries[num_entries].mem_perc = (((double)entries[num_entries].rss * 100.0 * (double)sysconf(_SC_PAGE_SIZE)) / (double)(sysconf(_SC_PAGE_SIZE)*sysconf(_SC_PHYS_PAGES)));
+        entries[num_entries].rss = atol(strtok(NULL," ")) * (double)sysconf(_SC_PAGE_SIZE);
+        entries[num_entries].mem_perc = (((double)entries[num_entries].rss * 100.0) / (double)(sysconf(_SC_PAGE_SIZE)*sysconf(_SC_PHYS_PAGES)));
 
         /*even more junk values */
 
